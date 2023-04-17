@@ -1,0 +1,236 @@
+---
+title: <center> Informe de Bookings </center>
+author: <center> Ana Pan </center>
+date: <center> 9/28/2020 </center>
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Leer datos, include =  FALSE}
+library(readr)
+bookings <- read_csv("bookings.csv")
+
+library(dplyr)
+bookings <- bookings %>%
+  mutate(ArrivalDateMonth = factor(ArrivalDateMonth, 
+                                   levels = 
+                                     c("January", 
+                                       "February", 
+                                       "March", 
+                                       "April", 
+                                       "May", 
+                                       "June", 
+                                       "July",
+                                        "August", 
+                                       "September", 
+                                       "October", 
+                                       "November", 
+                                       "December")))
+```
+<p> </p>
+<p> </p>
+### Ejercicio 1
+
+```{r Ejercicio 1, echo = FALSE}
+library(dplyr)
+
+boxplot(LeadTime ~ ArrivalDateMonth, data = bookings %>% 
+          filter(Country =="PRT"), main = "Portugal", las = 2, cex.axis = 0.6, col = "darkgreen")
+boxplot(LeadTime ~ ArrivalDateMonth, data = bookings %>% 
+          filter(Country =="GBR"), main = "Reino Unido", las = 2, cex.axis = 0.6, col = "dodgerblue4")
+boxplot(LeadTime ~ ArrivalDateMonth, data = bookings %>% 
+          filter(Country =="DEU"), main = "Alemania", las = 2, cex.axis = 0.6, col = "gold")
+boxplot(LeadTime ~ ArrivalDateMonth, data = bookings %>% 
+          filter(Country =="ESP"), main = "España", las = 2, cex.axis = 0.6, col = "firebrick2")
+```
+
+Los alemanes son los mas previsores. Sin embargo, dependiendo del mes de llegada pueden ser menos o más. Por ejemplo para el mes de julio, el mes donde más gente se va de vacaciones, reservan mucho antes que por ejemplo el mes de noviembre, donde no mucha gente se va de vacaciones.
+
+Los portugueses y los británicos son menos previsores que los alemanes. Y ambos tienen bastantes anómalos en el mes de marzo. Mucha gente suele reservar más tarde, pero incluye gente que reserva con mucha más antelación.
+
+Los españoles son más "de última hora". Al igual que Alemania, el mes de julio es donde son más previsores, ya que es cuando la gente suele irse de vacaciones. Y para asegurarse de tener plaza, reservan antes.
+
+En todas ellas, existen bastantes anómalos. Gente que no está dentro del intervalo "normal" a la hora de reservar. Todos estos datos anómalos suelen reservar con muchísima antelción.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+### Ejercicio 2
+<p>&nbsp;</p>
+```{r Ejercicio 2, echo =  FALSE}
+library(wesanderson)
+library(ggplot2)
+library(plotrix)
+
+países_importantes <- c("DEU","ESP", "FRA", "GBR", "ITA", "PRT")
+
+LeadT <- ggplot(bookings) +
+  aes(x = LeadTime) +
+  geom_boxplot(fill = "mistyrose", color = "lightpink4") +
+  coord_flip() +
+  labs(x = "Antelación de la reserva (días)", y = "Frecuencia")
+LeadT
+
+LeadT <- ggplot(bookings) +
+  aes(x = LeadTime) +
+  geom_boxplot(fill = "mistyrose", color = "lightpink4") +
+  labs(x = "Antelación de la reserva (días)", y = "Frecuencia")
+LeadT
+
+LeadT <- ggplot(bookings) +
+  aes(x = LeadTime) +
+  geom_histogram() +
+  stat_bin(bins = 50, binwidth = 50, fill = "mistyrose", color = "lightpink4") +
+  labs(x = "Antelación de la reserva (días)", y = "Frecuencia")
+LeadT
+```
+
+Gracias a estos gráficos, podemos ver que la variable LeadTime no tiene una distribución normal. También podemos observar que la mayoría de los clientes reservan entre 20 a 200 días de antelación, pero hay otros clientes que reservan con más de un año de antelación.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+### Ejercicio 3 
+<p>&nbsp;</p>
+````{r Ejercicio 3, echo = FALSE}
+Peticiones_Especiales <- ggplot(bookings %>% filter(Country %in% países_importantes)) + 
+  aes(y = TotalOfSpecialRequests, fill = Country) +
+  geom_bar() + 
+  facet_wrap(~ Country) +
+  labs(x = "Frecuencia", y = "Peticiones especiales")
+
+Theme =  theme(
+  axis.title.x = element_text(size = 9),
+  axis.text.x = element_text(size = 7, angle = 90, vjust = 0.5, hjust = 1), 
+  axis.title.y = element_text(size = 9),
+  axis.text.y = element_text(size = 7))
+
+Peticiones_Especiales + Theme
+```
+
+Hay un número elevado de países en la base de datos, con lo cual se ha limitado a seis países: Alemania, España, Francia, Reino Unido, Italia y Portugal. 
+
+Se observa en la gráfica de barras que los clientes con mayor número de peticiones especiales vienen de Portugal, comparado con el que menos que vienen de Italia. Ninguno de los clientes de los seis países seleccionados tienen más de 4 peticiones.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+### Ejercicio 4
+<p>&nbsp;</p>
+```{r Ejercicio 4, echo = FALSE}
+Seg_Mercado <- ggplot(bookings %>% 
+                   filter(Country %in% países_importantes)) + 
+  aes(y = MarketSegment, fill = MarketSegment) +
+  geom_bar() + 
+  facet_wrap(~ Country) +
+  labs(x = "Frecuencia", y = "Peticiones especiales")
+Seg_Mercado
+```
+
+La mayoría de los clientes son portugueses, y el mayor segmento de mercado que son _Groups_.
+
+Portugal e Italia son los únicos países que tienen clientes del segmento de mercado de _Aviation_.
+
+Podemos observar que las gráficas de todos los países se parecen bastante excepto la de Portugal. Aunque Francia resaltaría en el mercado de _Travel Agents_.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+### Ejercicio 5
+<p>&nbsp;</p>
+```{r Ejercicio 5, echo = FALSE}
+bookings <- bookings %>%
+  mutate(IsCanceled = as.logical(IsCanceled))
+head(bookings$IsCanceled)
+
+table(bookings$IsCanceled)
+prop.table(table(bookings$IsCanceled))
+```
+
+41.7% de las reservas son canceladas. 
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+### Ejercicio 6
+<p>&nbsp;</p>
+```{r Ejercicio 6, echo = FALSE}
+IsCan <- glm(formula = IsCanceled ~ LeadTime+ArrivalDateMonth+MarketSegment, 
+    data = bookings, family = "binomial")
+summary(IsCan)
+```
+
+Obtén un modelo de regresión que explique la variable IsCanceled a partir de LeadTime, ArrivalDateMonth y MarketSegment. Comenta los resultados. ¿Qué mes es más propicio para que se produzcan cancelaciones? ¿Dependen los resultados del segmento de mercado? ¿Influye la antelación con que se hizo la reserva en la probabilidad de cancelación?
+
+Nuestro modelo de regresión indica que los meses con más propicio para que se produzcan cancelaciones son abril y diciembre. Hay segmentos de mercado que ha dado un p-valor>0.05, con lo cual no son significativos. Estos segmentos de mercado son: _Corporate, Direct. Offline TA/TO y Undefined_.
+
+Además, nuestro modelo también indica que la variable _LeadTime_ sí influye en la probabilidad de cancelación ya que tiene un p-valor<0.05.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+### Ejercicio 7
+<p>&nbsp;</p>
+```{r Ejercicio 7, include = FALSE}
+library(regclass)
+```
+```{r Ejercicio 7.2, echo =  FALSE}
+confusion_matrix(IsCan)
+(38928+14147)/79330
+```
+Según la matriz de confusión nuestro modelo tiene un 66.9% de acierto. No podemos garantizar que sea un buen modelo. Esto puede ser a causa de las variables no significativas o se podría probar añadiendo nuevas variables.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+### Ejercicio 8
+<p>&nbsp;</p>
+```{r Ejercicio 8, include = FALSE}
+IsCan2 <- glm(formula = IsCanceled ~ LeadTime+ArrivalDateMonth+MarketSegment+
+                StaysInWeekNights+Adults+Children+Meal+PreviousCancellations, 
+                            data = bookings, family = "binomial")
+```
+
+```{r Ejercicio 8.2, echo = FALSE}
+summary(IsCan2)
+confusion_matrix(IsCan2)
+(40075+15002)/79326
+```
+
+Se ha añadido nuevas variables al modelo anterior. El resultado de la matriz de confusión indica que este nuevo modelo tiene un 69.4% de acierto. No sería el modelo óptimo, pero es mejor que el anterior.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+### Ejercicio 9
+<p>&nbsp;</p>
+```{r Ejercicio 9, echo = FALSE}
+bookings2 <- bookings
+
+Ej9 <- bookings2 %>%
+  group_by(Country) %>%
+  summarise(Mean_Cancellations = mean(IsCanceled))
+Ej9
+
+Ej9_TRUE <- subset(Ej9, Mean_Cancellations>0)
+
+Over500_Countries <- c("AUT", "BEL", "BRA", "CHE", "CHN", "CN", "DEU", "ESP", 
+                       "FRA", "GBR", "IRL", "ISR", "ITA", "NLD", "POL", "PRT", "SWE", "USA")
+
+Ej9_TRUE %>%
+  filter(Country %in% Over500_Countries) %>%
+  arrange(Mean_Cancellations)
+```
+
+Los tres países con más de 500 reservas y con una mayor media de cancelaciones son: Portugal, China y Brasil.
+
+Y los tres países con más de 500 reservas y con una menor media de cancelaciones son: ALemania, Australia y Francia.
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+### Ejercicio 10
+<p>&nbsp;</p>
+```{r Ejercicio 10, echo =  FALSE}
+bookings <- bookings %>%
+  mutate(PRT = (Country == "PRT")) %>%
+  mutate(BRA = (Country == "BRA")) %>%
+  mutate(ITA = (Country == "ITA")) %>%
+  mutate(GBR = (Country == "GBR")) %>%
+  mutate(ESP = (Country == "ESP"))
+
+IsCan3 <- glm(formula = IsCanceled ~ LeadTime + ArrivalDateMonth + MarketSegment +
+                StaysInWeekNights + Adults + Children + Meal + PreviousCancellations + 
+                PRT + BRA + ITA + GBR + ESP, 
+                            data = bookings, family = "binomial")
+summary(IsCan3)
+```
+
+Estas nuevas variables de los países con un elevado porcentaje de cancelaciones son todas significativas. Esto quiere decir que sí influyen en nuestro modelo. 
+
+Además, todos estos cinco países tienen más probabilidad de cancelar que los otros países que aprecen en la base de datos.

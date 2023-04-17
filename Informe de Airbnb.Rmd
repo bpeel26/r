@@ -1,0 +1,667 @@
+---
+title: <center> Informe de Airbnb </center>
+author: <center> Ana Pan </center>
+date: <center> `r Sys.Date()` </center>
+output: 
+  html_document:
+    toc: true
+    number_sections: false
+    toc_depth: 2
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+---
+
+```{r setup, include = F}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Librerías, include = F}
+library(dplyr)
+library(stringr)
+library(corrplot)
+library(RColorBrewer)
+library(ggplot2)
+library(lubridate)
+library(MASS)
+library(factoextra)
+library(wesanderson)
+```
+
+```{r Leer datos y ordenar, include = FALSE}
+airbnb <- read.csv("airbnb_seattle.csv")
+
+variables <- c("id", "host_id", "host_name", "host_since", "host_response_time",
+               "host_response_rate", "host_acceptance_rate", "host_is_superhost",
+               "neighbourhood_group_cleansed", "host_total_listings_count", 
+               "host_has_profile_pic", "latitude", "longitude",
+               "is_location_exact", "property_type",
+               "room_type", "accommodates", "bathrooms", "bedrooms", "beds",
+               "bed_type", "amenities", "price", "weekly_price", "monthly_price",
+               "security_deposit", "cleaning_fee", "guests_included", "extra_people",
+               "minimum_nights", "maximum_nights", "calendar_updated",
+               "availability_30", "availability_60", "availability_90", "availability_365",
+               "number_of_reviews", "review_scores_rating", "review_scores_accuracy",
+               "review_scores_cleanliness", "review_scores_checkin", 
+               "review_scores_communication", "review_scores_location", 
+               "review_scores_value", "cancellation_policy", "reviews_per_month")
+
+airbnb <- airbnb %>%
+  dplyr::select(variables)
+
+airbnb <- airbnb %>%
+  mutate(host_since = as.Date(host_since, "%Y-%m-%d"),
+         host_response_time = as.factor(host_response_time),
+         host_response_rate = as.numeric(sub("%", "", host_response_rate))/100,
+         host_acceptance_rate = as.numeric(sub("%", "", host_acceptance_rate))/100,
+         host_is_superhost = as.logical(toupper(host_is_superhost)),
+         neighbourhood_group_cleansed = as.factor(neighbourhood_group_cleansed),
+         host_has_profile_pic = as.logical(toupper(host_has_profile_pic)),
+         is_location_exact = as.logical(toupper(is_location_exact)),
+         property_type = as.factor(property_type),
+         room_type = as.factor(room_type),
+         bed_type = as.factor(bed_type),
+         price = as.numeric(sub("[$]", "", price)),
+         weekly_price = as.numeric(sub("[$]", "", weekly_price)),
+         monthly_price = as.numeric(sub("[$]", "", monthly_price)),
+         security_deposit = as.numeric(sub("[$]", "", security_deposit)),
+         cleaning_fee = as.numeric(sub("[$]", "", cleaning_fee)),
+         extra_people = as.numeric(sub("[$]", "", extra_people)),
+         calendar_updated = as.factor(calendar_updated),
+         cancellation_policy = as.factor(cancellation_policy))
+head(airbnb$amenities)
+
+airbnb <- airbnb %>%
+  mutate(amenities = str_replace_all(amenities, "[[:punct:]]", " "))
+head(airbnb$amenities)
+
+airbnb <- airbnb %>%
+  mutate(tv = str_detect(amenities, "TV"),
+         internet = str_detect(amenities, "Internet"),
+         free_parking = str_detect(amenities, "Free Parking"),
+         air_conditioning = str_detect(amenities, "Air Conditioning"),
+         heating = str_detect(amenities, "Heating"),
+         pets_allowed = str_detect(amenities, "Pets"),
+         breakfast = str_detect(amenities, "Breakfast"),
+         smoke_detector = str_detect(amenities, "Smoke Detector"),
+         kitchen = str_detect(amenities, "Kitchen"),
+         washer = str_detect(amenities, "Washer"),
+         dryer = str_detect(amenities, "Dryer"))
+```
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 1
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 1, echo = F}
+nrow(airbnb)
+ncol(airbnb)
+```
+
+El fichero airbnb_seattle.csv contiene una muestra de 3818 observaciones sobre _hosts_ de Airbnb en Seattle, con 57 variables (después de haber convertido cada una de las comodidades como variables) que representan información útil acerca de ellos. Estas variables incluyen información como: Nombre, tasa de respuesta, qué tipo de alojamiento ofrecen, las comodidades que ofrecen, entre muchas más.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 2 
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 2, echo = F, message = F, warning = F, fig.show = "hold", fig.align = "center"x}
+amenities_data = airbnb[, c("tv", "internet", "free_parking", "air_conditioning", "heating", 
+                       "pets_allowed", "breakfast", "smoke_detector", "kitchen",
+                       "washer", "dryer")]
+amenities_cor <- cor(amenities_data)
+
+corrplot(amenities_cor, tl.cex = 0.6, tl.col = "black", type = "upper", method = "ellipse")
+
+xtabs(~ tv + internet, data = amenities_data)
+
+prop.table(table(amenities_data$tv, amenities_data$internet))
+```
+
+Se ha hecho la matriz de correlación para el _data frame_ que se ha creado de las comodidades. Para una mejor visualización de la correlación entre las variables, se ha hecho una gráfica de correlación. Detalles a tener en cuenta:
+
+   - El color azul indica una correlación es positiva.
+   - El color rojo indica una correlación negativa. 
+   - Cuanto más oscuro el color, mayor correlación.
+
+Se observa que no hay muchos puntos de color rojo, ya que la mayoría de las variables tienen una correlación positiva entre sí. Las dos variables que tienen una relación lineal más fuerte son: _washer_ y _dryer_. Un ejemplo de las variables que apenas existe una relación lineal son: _tv_ y _pets_allowed_, ya que apenas se ve el punto.
+
+A pesar de que la correlación entre la televisión e internet es baja, el porcentaje de alojamientos con estas dos comodidades sale bastante alto. Esto se debe a que hay muchos más alojamientos que tienen internet que televisión.   
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 3
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 3, echo = F, message = F, warning = F}
+xtabs(~ kitchen + washer + dryer, data = amenities_data)
+```
+
+Existe una relaciín bastante fuerte entre estas tres variables. Hay 2815 de 3818 hosts que ofrecen _dryer_, _washer_ y _kitchen_ a la vez. Sin embargo, se observa que entre las comodidades _dryer_ y _washer_ hay mayor relación, ya que el segundo mayor número de hosts que ofrece cocina no ofrece ni dryer ni washer.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 4
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 4, echo = F, message = F, warning = F, fig.show = "hold", fig.align = "center"}
+plot(airbnb$longitude, airbnb$latitude, xlab = "Longitude", ylab = "Latitude")
+
+ggplot(airbnb, aes(x = longitude, y = latitude)) +
+  geom_point() +
+  geom_density_2d() +
+  geom_density_2d_filled(alpha = 0.5)
+```
+
+Esta gráfica representa la dispersión de la ubicación de los alojamientos. Se observa que la mayoría de los alojamientos ofrecidos están indicados por el contorno azul, entre las coordenadas 47.60 a 47.65 con la latitud y entre -122.35 y -122.30 con la longitud.
+
+En comparación a la imagen de Seattle al principio del capítulo, se puede identificar que las zonas que más alojamientos ofrecen son: 
+
+   - Centro de Seattle
+   - Queen Anne
+   - Belltown
+
+Y la mayoría de los alojamientos son tipo _"entire home/apt"_.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 5
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 5.1, echo =  F, message = F, warning = F}
+table(table(airbnb$host_id))
+length(unique(airbnb$host_id))
+```
+
+```{r Ejercicio 5.2, include = F, message = F, warning = F}
+hostid_freq <- table(airbnb$host_id)
+hostid_freq <- as.data.frame(hostid_freq)
+filter(hostid_freq, Freq == "46")
+
+airbnb %>%
+  filter(host_id == "8534462") %>%
+  dplyr::select(-id)
+```
+
+Según la tabla de frecuencias, el mayor número de alojamientos ofrecido por los hosts es 46, y solamente existe un host que lo ofrece. En cambio, hay 2285 hosts de 2751 que ofrecen solamente un alojamiento. 
+
+La siguiente información es de la host que más alojamientos ofrece_
+
+   - Su ID es _8534462_ y se llama _Daniela_.
+   - Es _superhost_.
+   - Los barrios donde ofrece son _Downtown_ y _Capitol Hill_.
+   - Todos los apartamentos que ofrece son apartamentos.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 6
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 6, echo = FALSE, message = F, warning = F, fig.show = "hold", fig.align = "center", out.width = "65%"}
+Años_alta <- year(airbnb$host_since)
+summary(Años_alta)
+
+table(Años_alta)
+Años_alta_df <- as.data.frame(Años_alta)
+Años_alta_factor <- as.factor(Años_alta)
+
+theme_bluewhite <- function (base_size = 11, base_family = "") {
+    theme_bw() %+replace% 
+    theme(panel.grid.major  = element_line(color = "white"),
+          panel.background = element_rect(fill = "lightblue"),
+          panel.border = element_rect(color = "lightblue", fill = NA),
+          axis.line = element_line(color = "lightblue"),
+          axis.ticks = element_line(color = "lightblue"),
+          plot.title = element_text(hjust = 0.5),
+          axis.title = element_text(size = 10, face = "bold"), 
+          title = element_text(size = 12, face = "bold"), 
+          legend.title = element_text(size = 10))
+}
+
+library(viridis)
+
+ggbar <- function(df, xvar, xlab, ylab, title, z) {
+  if(z <= 4) {
+    return(df %>%
+             ggplot(aes(x = xvar, fill = xvar)) +
+             labs(x = xlab, y = ylab, title = title, fill = xlab) +
+             theme(plot.title = element_text(hjust = 0.5), axis.title = element_text(size = 10, face = "bold"), title = element_text(size = 12, face = "bold"), legend.title = element_text(size = 10)) +
+             geom_bar())
+  }
+  if(z > 4) {
+    return(df %>%
+             ggplot(aes(x = xvar, fill = xvar)) +
+             labs(x = xlab, y = ylab, title = title) +
+             geom_bar(fill = "white", col = "black") +
+             theme_bluewhite())
+  }
+}
+
+ggbar(Años_alta_df, Años_alta_factor, "Años", "Frecuencia", "Evolución de Altas de Anfitriones", 3)
+```
+
+En el año 2008 solamente hubo 4 anfitriones que se dieron de alta ya que fue el año donde Airbnb se fundó, con lo cual en ese momento todavía no había mucha gente que conociera la plataforma. 
+
+Sin embargo, a lo largo de los años, este número se va multiplicando el doble hasta el año 2016. Es posible que algún evento del año 2016 haya sido la causa para la bajada de este número.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 7
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 7.1, echo = F, message = F, warning = F, fig.show = "hold", fig.align = "center", out.width = "65%"}
+Precio_por_Años <- airbnb %>%
+  mutate(Años_alta = year(host_since)) %>%
+  group_by(Años_alta) %>%
+  summarise(Precio_medio = mean(price, na.rm = TRUE))
+Precio_por_Años
+
+ggplot(Precio_por_Años, aes(x = Años_alta, y = Precio_medio)) +
+  geom_line(col = "black") +
+  geom_point(col = "black") + 
+  ggtitle("Evolución de los precios") +
+  theme_bluewhite() +
+  labs(x = "Años Alta", y = "Precio Medio")
+```
+
+```{r Ejercicio 7.2, include = F}
+plot(Precio_por_Años, type = "l", col = "black", main = "Evolución de los precios", xlab = "Años", ylab = "Precio medio")
+```
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 8
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 8, echo = F, message = F, warning = F, fig.align = "center", out.width = "65%"}
+ggboxplot <- function(df, xvar, yvar, xlab, ylab, title, z) {
+    if(z > 4) {
+    return(df %>%
+             ggplot(aes(x = xvar, y = yvar)) +
+             labs(x = xlab, y = ylab, title = title, fill = xlab) +
+             geom_boxplot(col = "black", fill = "white") +
+             theme_bluewhite())
+    }
+  if(z <= 4) {
+    return(df %>%
+             ggplot(aes(x = xvar, y = yvar, fill = xvar)) +
+             labs(x = xlab, y = ylab, title = title, fill = xlab) +
+             theme(plot.title = element_text(hjust = 0.5), axis.title = element_text(size = 10, face = "bold"), title = element_text(size = 12, face = "bold"), legend.title = element_text(size = 10)) +
+             geom_boxplot() +
+             scale_fill_brewer(palette = "PuBu"))
+  } 
+}
+
+ggboxplot(airbnb, airbnb$room_type, airbnb$price, "Tipo de Alojamiento", "Precio", "Tipo de Alojamiento vs Precio", 3) 
+
+table(airbnb$room_type)
+```
+
+Los apartamentos enteros tienen un precio mayor, un rango mayor y muchos más anómalos que las habitaciones privadas o habitaciones compartidas. Esto puede deberse a que hay muchas más ofertas de tipo _Entire home/apt_ (con 2541 ofertas) que _Private room_ (con 1160 ofertas) o _Shared room_ (con solamente 117 ofertas).
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 9 
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 9, echo = F, message = F, warning = F, fig.show = "hold", out.width = "33%"}
+class(airbnb$beds)
+beds_factor <- as.factor(airbnb$beds)
+class(beds_factor)
+
+ggboxplot(airbnb, beds_factor, airbnb$price, "Número de camas", "Precio", "Número de camas vs Precio", 5)
+
+table(airbnb$beds)
+
+which(grepl(8, airbnb$beds))
+
+airbnb %>%
+  dplyr::select(price, beds, cleaning_fee, room_type, neighbourhood_group_cleansed) %>%
+  filter(beds == 8)
+
+beds78910 <- factor(c(7:10))
+
+beds2 <- airbnb %>%
+  dplyr::select(beds, price) %>%
+  filter(beds %in% beds78910)
+
+
+for (i in beds78910) {
+  print(ggplot(beds2 %>% filter(beds == i),
+               aes(x = beds , y = price)) +
+  geom_boxplot() +
+  theme_bluewhite() +
+  labs(x = "Número de camas", y = "Precio")) 
+}
+```
+
+El precio de los alojamientos va aumentando a medida que van aumento el número de camas que ofrece, hasta llegar a 8 camas, que la tendencia del precio es más dispersa. 
+
+Mis primeras teorías para que el precio de alojamientos con 8 camas es mucho más bajo eran:
+
+   1. A los anfitriones no les importa aceptar una persona más que menos ya que son bastantes.
+   2. Para atraer a grupos grandes.
+   3. Hay mucha competición entre los anfitriones que ofrecen alojamientos con 8 camas.
+
+Tras hacer la tabla de frecuencias del número de camas y el _boxplot_ para cada uno, solamente hay 4 alojamientos que ofrecen 8 camas. Los cuales dos de ellos son habitaciones compartidas. En comparación con los alojamientos de 7/9 camas, son todos de tipo apartamento entero. Por haber sido afectado por el precio de las dos habitaciones compartidas, en la gráfica de boxplot, el rango de 8 camas es mucho más amplio que el de 7/9/10 camas, y el precio medio es mucho más bajo. 
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 10 
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 10, echo = F, message = F, warning = F, fig.show = "hold", fig.align = "center", out.width = "50%"}
+Barrio_Precio_Alojamiento <- airbnb %>%
+  group_by(Barrio = neighbourhood_group_cleansed) %>%
+  summarise(Precio_Medio = mean(price, na.rm = TRUE), N_Alojamientos = n())  %>%
+  arrange(desc(Precio_Medio))
+
+Barrio_Precio_Alojamiento
+
+cor(Barrio_Precio_Alojamiento$Precio_Medio, Barrio_Precio_Alojamiento$N_Alojamientos)
+
+str(Barrio_Precio_Alojamiento)
+Barrio_Precio_Alojamiento_2 <- as.data.frame(Barrio_Precio_Alojamiento)
+
+ggplot(Barrio_Precio_Alojamiento_2, aes(Precio_Medio, N_Alojamientos)) +
+  geom_point(aes(colour = Barrio)) +
+  theme(legend.text = element_text(size = 7), legend.key.size = unit(1, "lines"), legend.title = element_text(size = 10, face = "bold"), axis.title.x = element_text(size = 10, face = "bold"), axis.title.y = element_text(size = 10, face = "bold"), plot.title = element_text(hjust = 0.5, face = "bold")) +
+  ggtitle("Precio Medio y Número de Alojamientos por Barrio")
+
+ggboxplot(airbnb, airbnb$neighbourhood_group_cleansed, airbnb$price, "Barrio", "Precio", "Barrio vs Precio", 5) + coord_flip()
+```
+
+El barrio con el precio medio más alto es _Magnolia_ y el barrio con el precio medio más bajo es _Delridge_. Esta tabla no parece que muestra ningún aumento de precio medio por el número de alojamientos que hay por cada barrio. Tampoco muestra evidencia de que haya más o menos alojamientosen zonas más caras. La gráfica muestra una relación muy dispersa.
+
+La teoría correcta sería cuantos más alojamientos haya en un barrio, más barato tiene que ser, ya que hay muchos anfitriones que ofrecen (o puede ser que no, y es un mismo anfitrión el que ofrece muchos, como es el caso de Daniela en el barrio _Downtown_), con lo cual mucha competición. Sin embargo, hay barrios como _Lake City_ que apenas hay ofertas de alojamiento y aun así es barato y otros barrios como _Queen Anne_ que hay muchas ofertas y aun así es caro.
+
+También se podría pensar que los barrios donde hay muchos alojamientos es porque hay exceso de oferta, y por eso es más barato. Pero no se podría aplicar en este caso, ya que el precio medio y el número de alojamientos van muy aleatorios. Y efectivamente, se confirma que estas dos variables no tienen mucha relación lineal entre ellas (≈ 0.31).
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 11 
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 11, echo = F, message = F, warning = F, fig.show = "hold", fig.align = "center"}
+NoNA <- airbnb %>%
+  filter(host_response_time != "", host_response_time != "N/A")
+str(NoNA)
+
+ggbar(NoNA, NoNA$host_response_time, "Tiempo de respuesta", "Frecuencia", "Tiempo de respuesta", 4)
+
+table(airbnb$host_response_time)
+```
+
+La mayoría de los anfitriones contestan en una hora. Y hay muy pocos que contestan en unos días. Esto indica que casi todos los anfitriones están muy activos en la plataforma.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 12
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 12, echo = F, message = F, warning = F}
+table(airbnb$host_is_superhost)
+
+superhost <- subset(airbnb, host_response_time != "N/A")
+
+table(superhost$host_is_superhost, superhost$host_response_time)
+```
+
+```{r Ejercicio 12.2}
+(1/37)*100
+(57/540)*100
+(198/770)*100
+(489/1203)*100
+```
+
+De 3818 anfitriones que hay, 3038 son _superhost_. Se observa en la tabla que hay bastante relación el tiempo de respuesta medio con ser _superhost_. Ya que cuanto más rápido sea el tiempo de respuesta, el número de _superhost_ aumenta. 
+
+Esto se debería compararse con el número total de las cuatro categorías para tener una visión más precisa. Después de los cálculos, teniendo en cuenta el total, se confirma que hay más _superhosts_ si contestan más rápido.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 13
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 13, echo = F, message = F, warning = F}
+airbnb %>%
+  group_by(host_is_superhost) %>%
+  summarise(Medio_de_evaluaciones = mean(number_of_reviews))
+```
+
+Esta tabla afirma que a mayor número de evaluaciones recibidas, mayor probabilidad de que Airbnb califique a los anfitriones como _superhost_.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 14
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 14, echo = F, message = F, warning = F, fig.show = "hold", fig.align = "center"}
+chisq.test(airbnb$host_is_superhost, airbnb$number_of_reviews)
+```
+
+El Chi-test confirma que, efectivamente, el número de evaluaciones es estadísticamente significativo en relación a ser _superhost_, ya que el p-valor < 0.05.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 15
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 15, echo = F, message = F, warning = F, fig.show = "hold", fig.align = "center"}
+ggbar(airbnb, airbnb$number_of_reviews, "Número de evaluaciones", "Frecuencia", "Distribución del Número de Evaluaciones", 2) + aes(fill = airbnb$host_is_superhost) + geom_histogram(binwidth = 10) + labs(fill = "Superhost")
+```
+
+Ninguna de las poblaciones tiene una distribución normal.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 16 
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 16, echo = F, message = F, warning = F}
+regresión16 <- glm(formula = host_is_superhost ~ number_of_reviews + reviews_per_month + price, data = airbnb, family = "binomial")
+
+summary(regresión16)
+```
+
+Parece ser que las tres variables: _number of reviews_, _reviews per month_ y _price_ afectan a ser un _superhost_, ya que el p-valor < 0.05 en los tres casos. 
+
+El resultado indica que los superhosts reciben más evaluaciones, y el precio de los alojamientos que ofrecen es mayor, pero por poco.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 17 
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 17, echo = FALSE}
+airbnb2 <- airbnb %>%
+  dplyr::select(host_is_superhost, host_response_time, host_response_rate, is_location_exact, room_type, bathrooms, bedrooms, beds, bed_type, price, minimum_nights, availability_30, availability_60, availability_90, availability_365, number_of_reviews, review_scores_rating, review_scores_accuracy, review_scores_cleanliness, review_scores_checkin, review_scores_communication, review_scores_location, review_scores_value, cancellation_policy, reviews_per_month, tv, internet, free_parking, air_conditioning, heating, pets_allowed, breakfast, smoke_detector, kitchen, washer, dryer) %>%
+  na.omit()
+
+regresión17 <- glm(formula = host_is_superhost ~ ., family = "binomial", data = airbnb2)
+
+summary(regresión17)
+
+step_regresión17 <- stepAIC(regresión17, trace = F)
+summary(step_regresión17)
+```
+
+Con el nuevo modelo tras haber usado la función _stepAIC_ para encontrar las variables que mejor expliquen el modelo, existen 15 variables significativas. Este modelo indica que los anfitriones _superhost_ suelen poner un precio mayor a los alojamientos. También indica que mejores sean las evaluaciones recibidas, más probabilidad de ser _superhost_.
+
+El modelo de regresión indica que unas 13 variables que son significantes y 2 que su p-valor es poco más que 0.05.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 18
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 18, echo = F, message = F, warning = F}
+table(airbnb$neighbourhood_group_cleansed)
+```
+
+Se ofrecen más alojamientos en _Other neighborhoods_. De los barrios mencionados, el barrio que más alojamientos hay es _Capitol Hill_, y el que menos es _Interbay_.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 19 
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 19, echo = FALSE}
+total_listings <- table(airbnb$host_total_listings_count)
+total_listings
+```
+
+Teniendo en cuenta la lista de alojamientos de todo Estados Unidos, los anfitriones de esta base de datos también ofrecen alojamientos en otras ciudades, aparte de Seattle. Hay dos anfitriones que ofrecen un total de 502 alojamientos. La mayoría de ellos ofrecen de uno a cuatro alojamientos.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 20
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 20, echo = F, message = F, warning = F, fig.align = "center", out.width = "65%"}
+ggbar(airbnb, airbnb$room_type, "Tipo de alojamientos", "Frecuencia", "Tipos de alojamiento", 3)
+```
+
+Se ofrece el doble de apartamentos enteros que habitaciones privadas. Y se ofrece diez veces más habitaciones privadas que habitacione compartidas.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 21
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 21, echo = F, message = F, warning = F, fig.align = "center", out.width = "65%"}
+ggboxplot(airbnb, airbnb$room_type, airbnb$price, "Tipo de alojamiento", "Precio", "Tipo de alojamiento vs Precio", 3)
+
+ggbar(airbnb, airbnb$price, "Precio", "Frecuencia", "Tipo de alojamientovs Precio", 2) + aes(fill = room_type) + facet_wrap(~ room_type) + geom_histogram()
+```
+
+```{r Ejercicio 21.1, include = F}
+ggplot(airbnb) + 
+  aes(x = price, fill = room_type) +
+  geom_histogram() +
+  labs(title = "Tipo de alojamiento vs Precio", x = "Precio", y = "Frecuencia", fill = "Tipo de alojamiento") +
+  facet_wrap(~ room_type) +
+  scale_fill_manual(values = wes_palette(n = 3, name = "BottleRocket2"))
+```
+
+```{r Ejercicio 21.2, include = FALSE}
+hist(airbnb$price[airbnb$room_type == "Private room"], main = "Private Room", xlab = "Price", ylab = "Frequency")
+hist(airbnb$price[airbnb$room_type == "Shared room"], main = "Shared Room", xlab = "Price", ylab = "Frequency")
+hist(airbnb$price[airbnb$room_type == "Entire home/apt"], main = "Entire home/apt", xlab = "Price", ylab = "Frequency")
+```
+
+De nuevo se confirma que se ofrece más apartamentos enteros que habitaciones privadas y habitaciones compartidas. Y se ofrece más habitaciones privadas que habitacione compartidas.
+
+Ninguno de los tres tipos de alojamientos tiene una distribución normal.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 22 
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 22, echo = F}
+summary(airbnb$price)
+
+summary(airbnb$weekly_price)
+
+summary(airbnb$monthly_price)
+```
+
+El precio máximo ofrecido por noche es 999 u.m. Y ek precio mínimo por noche 20 u.m. Y la media es alrededor de 128 u.m.
+
+Con el precio semanal, en general, los alojamientos saldrían más baratos. Ya que multiplicando el precio medio por noche de la tabla anterior por 7 (siete días a la semana), el precio medio semanal tendría que salir a 896 u.m. Sin embargo, el precio medio semanal sale a 568 u.m. Con lo cual, al reservar por semanas o por meses, se les aplica un descuento a los clientes.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 23 
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 23, echo = F, message = F, warning = F}
+real_weekly_price <- 7*airbnb$price
+discount <- 1 - (airbnb$weekly_price/real_weekly_price)
+summary(discount, na.rm = TRUE)
+```
+
+Se obtiene un descuento promedio de 9.24% si se reserva semanalmente y no por noche. Es raro, pero también existen descuentos negativos. Es posible que sea menos conveniente para el anfitrión alquilar el alojamiento por semana que por noche, y por ello es más caro. O que se hayan equivocado al poner los precios.
+
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+
+# Ejercicio 24
+
+<p>&nbsp;</p>
+
+```{r Ejercicio 24, echo = F, message = F, warining = F, fig.align = "center", out.width = "65%"}
+airbnb %>%
+  dplyr::select(review_scores_rating, review_scores_accuracy, review_scores_cleanliness,
+         review_scores_checkin, review_scores_communication, review_scores_location,
+         review_scores_value) %>%
+  na.exclude() %>%
+  cor()
+
+res_pca <- airbnb %>%
+  dplyr::select(review_scores_rating, review_scores_accuracy, review_scores_cleanliness,
+         review_scores_checkin, review_scores_communication, review_scores_location,
+         review_scores_value) %>%
+  na.exclude() %>%
+  prcomp(scale = TRUE)
+fviz_eig(res_pca)
+
+fviz_pca_var(res_pca,
+             col.ind = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+```
+
+Se podría crear grupos de variables correlacionadas entre sí, que explicaría alrededor de un 60% la variabilidad.
+
+La primera dimensión del análisis del componente principal explica un 54.6% de la variabilidad de las siete variables. Todas ellas perteneciendo al lado izquierdo, lo cual indica que si una de ellas tiene una buena puntuación, las otras también las tendrían. 
+
+En cambio, en la segunda dimensión que explica un 12% de la variabilidad, discroma dos grupos. Por un lado están las variables de evaluación del check-in y de la comunicación y por otro las restantes. Esto implica que normalmente los usuarios dan buena puntuación a las variables de evaluación de la limpieza, localización, etc., pero para check-in y comunicación una puntuación menor, y viceversa.
